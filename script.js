@@ -4,17 +4,20 @@ const Player = (name, mark, cpu = false) => {
   const isCPU = () => cpu;
   return { getName, getMark, isCPU };
 }
-
 const gameBoard = (() => {
   const board = [];
   const MAX_BOARD_SIZE = 9;
+  const playerMarkHistory = [];
+
 
   initializeGameBoard();
   printBoard();
 
   function resetGameBoard() {
-
-    for (let i = 0; i < MAX_BOARD_SIZE; i++) board.pop();
+    for (let i = 0; i < MAX_BOARD_SIZE; i++) {
+      board.pop();
+      playerMarkHistory.pop();
+    }
     initializeGameBoard();
     console.log('Gameboard has been reset');
   }
@@ -27,27 +30,91 @@ const gameBoard = (() => {
   function printBoard() { console.dir(getBoard()) }
   function addPlayerMark(mark, index) {
     board[index] = mark;
+    playerMarkHistory.push(index);
   };
-  return { getBoard, printBoard, addPlayerMark, resetGameBoard };
+  function getPlayerMarkHistory() {
+    return playerMarkHistory;
+  }
+  return { getBoard, printBoard, addPlayerMark, resetGameBoard, getPlayerMarkHistory };
 })();
 
-const game = ((allowCPU = false) => {
+const domController = (() => {
+  //event listeners
+  const roundDescription = document.querySelector('.roundDescription');
+  const gridSquares = document.querySelectorAll('.square p');
+  gridSquares.forEach((square) => {
+    square.addEventListener('click', function () {
+      game.playRound(this.attributes['data-index'].value);
+    }, { once: false });
+  });
+  const endGameOverlay = document.querySelector('.endGameOverlay');
+  const playAgainBtn = document.querySelector('#play-again-btn');
+  playAgainBtn.addEventListener('click', playAgain);
+
+  function addToGameBoard(playerMark, index) {
+    const activeSquare = document.querySelector(`p[data-index="${index}"]`)
+    activeSquare.textContent = playerMark;
+  }
+  function displayRoundDescription(messageToPlayer) {
+    roundDescription.textContent = messageToPlayer;
+  }
+
+  function resetDOMGameBoard() {
+    gridSquares.forEach((square) => {
+      square.textContent = "";
+    })
+  }
+  function toggleEndGameOverlay() {
+    endGameOverlay.classList.toggle('hide-display');
+  }
+  function playAgain() {
+    game.resetGame();
+    roundDescription.textContent = game.getPlayerTurn();
+    resetDOMGameBoard();
+    toggleEndGameOverlay();
+  }
+  function endGame(endMessage) {
+    const endGameTextBox = document.querySelector('.endGameOverlay .winnerMessage');
+    endGameTextBox.textContent = endMessage;
+    toggleEndGameOverlay();
+  }
+
+  return { addToGameBoard, endGame, displayRoundDescription };
+})();
+const game = (() => {
   const currentPlayers = [];
   const playerMarks = ['X', 'O'];
-
-  //Fills array with current players
-  if (allowCPU) {
-    currentPlayers.push(Player('Player 1', playerMarks[i - 1]));
-    currentPlayers.push(Player('CPU', playerMarks[playerMarks.length - 1], true));
-  } else {
-    let maxPlayers = 2;
-    for (let i = 1; i <= maxPlayers; i++) {
-      currentPlayers.push(Player('Player ' + i, playerMarks[i - 1]));
-    }
+  let maxPlayers = 2;
+  for (let i = 1; i <= maxPlayers; i++) {
+    currentPlayers.push(Player('Player ' + i, playerMarks[i - 1]));
   }
-  let activePlayerTurn = currentPlayers[0];
-  displayPlayerTurn();
+  let activePlayerTurn;
+  let winningPlayer = '';
+  let endGameMessage = '';
 
+  setActivePlayer(currentPlayers[0]);
+  console.log(getPlayerTurn());
+  domController.displayRoundDescription(getPlayerTurn());
+
+
+  function setWinningPlayer(playerName) {
+    winningPlayer = playerName;
+  }
+  function getWinningPlayer() {
+    return winningPlayer;
+  }
+  function setEndGameMessage(message) {
+    endGameMessage = message;
+  }
+  function getEndGameMessage() {
+    return endGameMessage;
+  }
+  function getActivePlayer() {
+    return activePlayerTurn;
+  }
+  function setActivePlayer(personObj) {
+    activePlayerTurn = personObj;
+  }
   function printCurrentPlayers() {
     return currentPlayers.forEach(player => {
       console.log(`${player.getName()} (${player.getMark()})`);
@@ -55,9 +122,11 @@ const game = ((allowCPU = false) => {
   }
   function resetGame() {
     activePlayerTurn = currentPlayers[0];
-    displayPlayerTurn();
+    console.log(getPlayerTurn());
     gameCounter.reset();
     gameBoard.resetGameBoard();
+    setWinningPlayer('');
+    setEndGameMessage('');
     console.log('Playing Again');
     gameBoard.printBoard();
   }
@@ -126,18 +195,28 @@ const game = ((allowCPU = false) => {
 
   }
   function gameOver(player, winnerFound) {
-    return (winnerFound) ? console.log(`${player.getName()} wins!`) : console.log('Game is over, it\'s a tie');
+    if (winnerFound) {
+      setWinningPlayer(player.getName())
+      setEndGameMessage(`The Winner is ${getWinningPlayer()}`);
+      console.log(`The Winner is ${getWinningPlayer()}`);
+      domController.endGame(getEndGameMessage());
+    } else {
+      setEndGameMessage(`It's a Tie!`);
+      console.log(getEndGameMessage());
+      domController.endGame(getEndGameMessage());
+    }
   }
   function playRound(index) {
     if (gameBoard.getBoard()[index]) {
       console.log('Cannot place your mark here');
-      return;
+      return false;
     }
     gameCounter.displayRound();
 
     gameBoard.addPlayerMark(activePlayerTurn.getMark(), index);
     gameCounter.increment();
     console.log(`game count -> ${gameCounter.getCount()}`);
+    domController.addToGameBoard(activePlayerTurn.getMark(), index);
 
     gameBoard.printBoard();
     if (gameCounter.getRound() >= 3) {
@@ -151,12 +230,13 @@ const game = ((allowCPU = false) => {
       }
     }
     switchTurn();
-    displayPlayerTurn();
+    console.log(getPlayerTurn());
+    domController.displayRoundDescription(getPlayerTurn());
 
   }
-  function displayPlayerTurn() {
-    console.log(`${activePlayerTurn.getName()}'s turn`);
+  function getPlayerTurn() {
+    return `(${activePlayerTurn.getMark()}) ${activePlayerTurn.getName()}'s move`;
   }
 
-  return { currentPlayers, printCurrentPlayers, playRound, displayPlayerTurn, gameCounter, resetGame };
+  return { getActivePlayer, currentPlayers, printCurrentPlayers, playRound, getPlayerTurn, gameCounter, resetGame, setWinningPlayer, getWinningPlayer, setEndGameMessage, getEndGameMessage };
 })();
