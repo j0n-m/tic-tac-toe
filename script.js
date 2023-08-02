@@ -5,32 +5,35 @@ const Player = (name, mark, cpu = false) => {
   return { getName, getMark, isCPU };
 }
 
-const gameBoard = () => {
-  let rows = 3;
-  let columns = 3;
+const gameBoard = (() => {
   const board = [];
-  const gameEnd = null;
+  const MAX_BOARD_SIZE = 9;
 
-  for (let i = 0; i < rows; i++) {
-    board.push([]);
-    for (let j = 0; j < columns; j++) {
-      board[i].push('');
-    }
-  }
+  initializeGameBoard();
   printBoard();
 
+  function resetGameBoard() {
+
+    for (let i = 0; i < MAX_BOARD_SIZE; i++) board.pop();
+    initializeGameBoard();
+    console.log('Gameboard has been reset');
+  }
+  function initializeGameBoard() {
+    for (let i = 0; i < MAX_BOARD_SIZE; i++) {
+      board.push('');
+    }
+  }
   function getBoard() { return board; };
   function printBoard() { console.dir(getBoard()) }
-  function addPlayerMark(mark, indexRow, indexColumn) {
-    board[indexRow][indexColumn] = mark;
-  }
+  function addPlayerMark(mark, index) {
+    board[index] = mark;
+  };
+  return { getBoard, printBoard, addPlayerMark, resetGameBoard };
+})();
 
-  return { getBoard, addPlayerMark, printBoard };
-}
-
-function gameController(allowCPU = false, playerMarks = ['X', 'O']) {
-  const board = gameBoard();
+const game = ((allowCPU = false) => {
   const currentPlayers = [];
+  const playerMarks = ['X', 'O'];
 
   //Fills array with current players
   if (allowCPU) {
@@ -50,12 +53,25 @@ function gameController(allowCPU = false, playerMarks = ['X', 'O']) {
       console.log(`${player.getName()} (${player.getMark()})`);
     })
   }
+  function resetGame() {
+    activePlayerTurn = currentPlayers[0];
+    displayPlayerTurn();
+    gameCounter.reset();
+    gameBoard.resetGameBoard();
+    console.log('Playing Again');
+    gameBoard.printBoard();
+  }
+
   const gameCounter = (() => {
     let count = 0;
     let round = 1;
 
     const increment = () => {
       return count++;
+    }
+    const reset = () => {
+      count = 0;
+      round = 1;
     }
     const getCount = () => count;
     const getRound = () => round;
@@ -69,8 +85,9 @@ function gameController(allowCPU = false, playerMarks = ['X', 'O']) {
         console.log(`Round: ${round}`);
       }
     }
-    return { increment, getCount, displayRound, displayCount, getRound };
+    return { increment, getCount, displayRound, displayCount, getRound, reset };
   })();
+
   function switchTurn() {
     if (activePlayerTurn == currentPlayers[0]) {
       activePlayerTurn = currentPlayers[1]
@@ -78,52 +95,58 @@ function gameController(allowCPU = false, playerMarks = ['X', 'O']) {
       activePlayerTurn = currentPlayers[0];
     }
   }
-  function checkForWinner(playerObj) {
-    let rowLength = board.getBoard()[0].length;
-    const straightRow = [playerObj.getMark(), playerObj.getMark(), playerObj.getMark()];
+  function checkForWinner(playerMark) {
+    const winningIndexSets = [
+      [0, 1, 2],
+      [3, 4, 5],
+      [6, 7, 8],
+      [0, 3, 6], //column 0
+      [1, 4, 7], //column 1
+      [2, 5, 8], //column 2
+      [0, 4, 8], //diagnal
+      [2, 4, 6] //diagonal
+    ];
 
-    const straightColumn = [playerObj.getMark(), playerObj.getMark(), playerObj.getMark()];
-    //check for all rows
-    for (let i = 0; i < rowLength; i++) {
-      if (board.getBoard()[i].toString() == straightRow) {
+    //Find all indexes from the gameboard array that have the selected player's mark
+    const matchedPlayerArray = gameBoard.getBoard().reduce((arr, value, index) => {
+      if (value == playerMark) {
+        arr.push(index);
+      }
+      return arr;
+    }, []);
+
+    //checks to see if the matchedPlayerArray have the winning values compared to the winningIndexSet array
+
+    for (const winningSet of winningIndexSets) {
+      let [value1, value2, value3] = winningSet;
+      if (matchedPlayerArray.includes(value1) && matchedPlayerArray.includes(value2) && matchedPlayerArray.includes(value3)) {
         return true;
       }
     }
-    //check for all columns
-    if (board.getBoard()[0][0] == playerObj.getMark() && board.getBoard()[1][0] == playerObj.getMark() && board.getBoard()[2][0] == playerObj.getMark() || board.getBoard()[0][1] == playerObj.getMark() && board.getBoard()[1][1] == playerObj.getMark() && board.getBoard()[2][1] == playerObj.getMark() || board.getBoard()[0][2] == playerObj.getMark() && board.getBoard()[1][2] == playerObj.getMark() && board.getBoard()[2][2] == playerObj.getMark()) {
-      return true;
-    }
 
-    //check for all diagnols
-    if (board.getBoard()[0][0] == playerObj.getMark() && board.getBoard()[1][1] == playerObj.getMark() && board.getBoard()[2][2] == playerObj.getMark() || board.getBoard()[0][2] == playerObj.getMark() && board.getBoard()[1][1] == playerObj.getMark() && board.getBoard()[2][0] == playerObj.getMark()) {
-      return true;
-    }
   }
   function gameOver(player, winnerFound) {
     return (winnerFound) ? console.log(`${player.getName()} wins!`) : console.log('Game is over, it\'s a tie');
   }
-  function playRound(indexRow, indexColumn) {
-    if (board.getBoard()[indexRow][indexColumn]) {
+  function playRound(index) {
+    if (gameBoard.getBoard()[index]) {
       console.log('Cannot place your mark here');
       return;
     }
     gameCounter.displayRound();
 
-
-    board.addPlayerMark(activePlayerTurn.getMark(), indexRow, indexColumn);
+    gameBoard.addPlayerMark(activePlayerTurn.getMark(), index);
     gameCounter.increment();
     console.log(`game count -> ${gameCounter.getCount()}`);
 
-    board.printBoard();
+    gameBoard.printBoard();
     if (gameCounter.getRound() >= 3) {
-      let foundWinner;
-      foundWinner = checkForWinner(activePlayerTurn);
-      if (foundWinner) {
-        gameOver(activePlayerTurn, foundWinner);
+      if (checkForWinner(activePlayerTurn.getMark())) {
+        gameOver(activePlayerTurn, true);
         return;
       }
       if (gameCounter.getCount() == 9) {
-        gameOver(activePlayerTurn, foundWinner);
+        gameOver(activePlayerTurn, false);
         return;
       }
     }
@@ -135,7 +158,5 @@ function gameController(allowCPU = false, playerMarks = ['X', 'O']) {
     console.log(`${activePlayerTurn.getName()}'s turn`);
   }
 
-  return { board, currentPlayers, printCurrentPlayers, playRound, switchTurn, displayPlayerTurn, gameCounter };
-}
-
-const game = gameController();
+  return { currentPlayers, printCurrentPlayers, playRound, displayPlayerTurn, gameCounter, resetGame };
+})();
