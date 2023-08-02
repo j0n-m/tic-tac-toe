@@ -21,6 +21,8 @@ header {
 main {
   padding: 1rem 1rem;
   position: relative;
+  max-width: 900px;
+  margin: 0 auto;
 }
 
 .btns button {
@@ -40,6 +42,7 @@ main {
 
 .gameBoard {
   display: grid;
+  padding: 2rem 0;
   grid-template-columns: repeat(3, minmax(75px, 125px));
   grid-template-rows: repeat(3, minmax(75px, 125px));
   border: 1px solid black;

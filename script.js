@@ -208,7 +208,9 @@ const game = (() => {
   }
   function playRound(index) {
     if (gameBoard.getBoard()[index]) {
-      console.log('Cannot place your mark here');
+      let errorMessage = 'Cannot place your mark here';
+      console.log(errorMessage);
+      domController.displayRoundDescription(errorMessage);
       return false;
     }
     gameCounter.displayRound();
